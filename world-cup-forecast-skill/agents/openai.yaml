@@ -1,0 +1,4 @@
+interface:
+  display_name: "World Cup Forecast"
+  short_description: "Forecast World Cup standings and matches"
+  default_prompt: "Use $world-cup-forecast-skill to predict the next World Cup round and summarize the current top scorers."
