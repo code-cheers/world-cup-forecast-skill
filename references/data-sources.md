@@ -31,6 +31,15 @@ Use these sources in free-first mode. Verify live availability before relying on
 - This source is slower because the script fetches one official team page per tournament team code, then reads the embedded ranking JSON.
 - Keep FIFA rankings optional so ordinary forecasts remain fast and no-key.
 
+## Market Signals JSON
+
+- CLI flag: `--market-signals-file <path>`
+- Best for prediction-market prices, sportsbook-implied probabilities, or manually curated odds snapshots.
+- The script does not require a live paid odds provider. Convert any available market data into the schema shown in `examples/market-signals.example.json`.
+- Match markets can include `team1_probability`, `team2_probability`, optional `draw_probability`, `volume`, `liquidity`, `spread`, `source`, and `updated_at`.
+- Champion futures can include `rank_type: "champion"`, `team`, `probability`, and the same quality fields.
+- Market weights are capped and quality-adjusted. Low volume, low liquidity, or wide spread reduce the effective blend weight.
+
 ## Optional Paid/Keyed Providers
 
 Do not require paid providers in v1. If a user asks for true live event feeds, lineups, player match stats, xG, odds, or attack momentum, explain that free public data may be incomplete and ask for an API key or provider preference.
@@ -39,3 +48,4 @@ Known extension candidates:
 
 - BALLDONTLIE FIFA World Cup API: covers 2018, 2022, and 2026 with teams, standings, matches, rosters, events, player match stats, shots, momentum, and odds. Most rich endpoints require an API key and paid tier.
 - API-FOOTBALL or Sportmonks: use only when the user has credentials or explicitly chooses that provider.
+- Polymarket or sportsbook feeds: useful for market calibration when the data includes clear timestamps, prices, liquidity, and source attribution.

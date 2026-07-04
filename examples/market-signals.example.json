@@ -1,0 +1,68 @@
+{
+  "sources": [
+    "Polymarket fifwc snapshot",
+    "Public sportsbook odds snapshot"
+  ],
+  "matches": [
+    {
+      "team1": "Paraguay",
+      "team2": "France",
+      "team1_probability": 0.075,
+      "team2_probability": 0.925,
+      "source": "Polymarket",
+      "volume": 25000,
+      "liquidity": 12000,
+      "spread": 0.02,
+      "updated_at": "2026-07-04T09:55:52Z"
+    },
+    {
+      "team1": "Canada",
+      "team2": "Morocco",
+      "team1_probability": 0.275,
+      "team2_probability": 0.725,
+      "source": "Polymarket",
+      "volume": 18000,
+      "liquidity": 9000,
+      "spread": 0.03,
+      "updated_at": "2026-07-04T09:55:52Z"
+    }
+  ],
+  "futures": [
+    {
+      "rank_type": "champion",
+      "team": "France",
+      "probability": 0.32,
+      "source": "Public sportsbook odds snapshot",
+      "volume": 50000,
+      "liquidity": 25000,
+      "spread": 0.03
+    },
+    {
+      "rank_type": "champion",
+      "team": "Argentina",
+      "probability": 0.18,
+      "source": "Public sportsbook odds snapshot",
+      "volume": 50000,
+      "liquidity": 25000,
+      "spread": 0.03
+    },
+    {
+      "rank_type": "champion",
+      "team": "Spain",
+      "probability": 0.12,
+      "source": "Public sportsbook odds snapshot",
+      "volume": 50000,
+      "liquidity": 25000,
+      "spread": 0.03
+    },
+    {
+      "rank_type": "champion",
+      "team": "Brazil",
+      "probability": 0.11,
+      "source": "Public sportsbook odds snapshot",
+      "volume": 50000,
+      "liquidity": 25000,
+      "spread": 0.03
+    }
+  ]
+}

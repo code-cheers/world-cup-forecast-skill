@@ -15,6 +15,7 @@ Each team starts from a neutral rating and receives these adjustments:
 - Recent current-tournament points from the last three matches.
 - Current tournament scorer impact from completed-match goal totals.
 - Host boost for Canada, Mexico, and United States in 2026.
+- Optional market calibration from odds or prediction-market probabilities.
 
 Current-tournament signals are sample-weighted. Before a team has completed all three group matches, points per match, goal difference, goals scored, recent form, and scorer impact are multiplied by `played / 3`. This keeps one early blowout from dominating historical strength and neutral priors.
 
@@ -24,6 +25,9 @@ Convert the team-rating delta through a logistic curve.
 
 - Group-stage matches include a draw probability, highest when teams are close.
 - Knockout matches force a winner probability because the bracket must advance one team.
+- If `--market-signals-file` is supplied and a matching market exists, blend model probabilities with market probabilities. The output keeps model, market, and blended probabilities separate in JSON.
+
+Market blend weight defaults to `0.35` and is capped at `0.65`. Quality adjustments reduce the effective weight when a market has low volume, low liquidity, or wide spread.
 
 ## Final Ranking Simulation
 
@@ -37,3 +41,17 @@ For final forecasts, run Monte Carlo simulations:
 6. Simulate knockouts through the final and third-place match.
 
 Use a fixed seed when reproducibility matters. Increase `--runs` for more stable probabilities.
+
+Champion futures from a market signals file can calibrate the champion marginal table. Runner-up, third-place, fourth-place, and most-likely podium tables remain model-simulation outputs unless future market data explicitly supports those ranking types.
+
+`--seed` fixes the Monte Carlo random sequence only. It does not freeze OpenFootball, Elo, FIFA, or market-source data. Preserve generated reports in `forecasts/daily/` when an exact daily snapshot matters.
+
+## Confidence Interpretation
+
+Use three buckets when explaining results:
+
+- High confidence: model and market agree, and market data is recent, liquid, and low-spread.
+- Medium confidence: model and market point in the same direction but probabilities differ meaningfully.
+- Low confidence or disagreement: market and model point to different winners, or market quality is weak.
+
+Do not describe outputs as betting recommendations.

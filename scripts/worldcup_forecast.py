@@ -166,6 +166,13 @@ TEXT = {
         "fifa_rank": "FIFA Rank",
         "fifa_points": "FIFA Points",
         "rating_sources": "Rating sources",
+        "market_sources": "Market sources",
+        "warnings": "Warnings",
+        "warning": "Warning",
+        "market_signal": "Market signal",
+        "model_probability": "Model",
+        "market_probability": "Market",
+        "blended_probability": "Blended",
     },
     "zh": {
         "year": "年份",
@@ -222,6 +229,13 @@ TEXT = {
         "fifa_rank": "FIFA 排名",
         "fifa_points": "FIFA 积分",
         "rating_sources": "评分来源",
+        "market_sources": "市场来源",
+        "warnings": "警告",
+        "warning": "警告",
+        "market_signal": "市场信号",
+        "model_probability": "模型",
+        "market_probability": "市场",
+        "blended_probability": "融合",
     },
 }
 
@@ -234,6 +248,14 @@ class DataError(RuntimeError):
 class PublicRatings:
     elo: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     fifa: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    sources: List[str] = field(default_factory=list)
+    warnings: List[str] = field(default_factory=list)
+
+
+@dataclass
+class MarketSignals:
+    matches: List[Dict[str, Any]] = field(default_factory=list)
+    futures: List[Dict[str, Any]] = field(default_factory=list)
     sources: List[str] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
 
@@ -463,6 +485,160 @@ def load_public_ratings(
     return ratings
 
 
+def clamp(value: float, low: float, high: float) -> float:
+    return max(low, min(high, value))
+
+
+def market_team_key(team: Any) -> str:
+    if team is None:
+        return ""
+    name = str(team)
+    canonical = TEAM_ALIASES.get(name, name)
+    return normalize_team_name(canonical)
+
+
+def load_market_signals(path: Optional[str]) -> MarketSignals:
+    if not path:
+        return MarketSignals()
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            raw = json.load(handle)
+    except OSError as exc:
+        raise DataError(f"Could not read market signals file {path}: {exc}") from exc
+    except json.JSONDecodeError as exc:
+        raise DataError(f"Invalid market signals JSON in {path}: {exc}") from exc
+    if not isinstance(raw, dict):
+        raise DataError(f"Market signals file {path} must contain a JSON object")
+    matches = raw.get("matches") or []
+    futures = raw.get("futures") or []
+    if not isinstance(matches, list) or not isinstance(futures, list):
+        raise DataError(f"Market signals file {path} must use list values for matches and futures")
+    sources = raw.get("sources") or []
+    if isinstance(sources, str):
+        sources = [sources]
+    warnings = raw.get("warnings") or []
+    if isinstance(warnings, str):
+        warnings = [warnings]
+    return MarketSignals(matches=matches, futures=futures, sources=list(sources), warnings=list(warnings))
+
+
+def row_market_weight(row: Dict[str, Any], default_weight: float) -> float:
+    try:
+        weight = float(row.get("weight", default_weight))
+    except (TypeError, ValueError):
+        weight = default_weight
+    for key, threshold, factor in (("volume", 1000.0, 0.65), ("liquidity", 500.0, 0.75)):
+        try:
+            value = float(row.get(key, threshold))
+        except (TypeError, ValueError):
+            value = threshold
+        if value < threshold:
+            weight *= factor
+    try:
+        spread = float(row.get("spread", 0.0))
+    except (TypeError, ValueError):
+        spread = 0.0
+    if spread > 0.15:
+        weight *= 0.50
+    elif spread > 0.08:
+        weight *= 0.75
+    return clamp(weight, 0.0, 0.65)
+
+
+def market_match_probabilities(row: Dict[str, Any], team1: str, team2: str) -> Optional[Dict[str, float]]:
+    probabilities_by_team = row.get("probabilities")
+    if isinstance(probabilities_by_team, dict):
+        lookup = {market_team_key(team): value for team, value in probabilities_by_team.items()}
+        if market_team_key(team1) in lookup and market_team_key(team2) in lookup:
+            try:
+                p1 = float(lookup[market_team_key(team1)])
+                p2 = float(lookup[market_team_key(team2)])
+                draw = float(lookup.get("draw", row.get("draw_probability", 0.0)) or 0.0)
+            except (TypeError, ValueError):
+                return None
+            total = p1 + p2 + draw
+            if total <= 0:
+                return None
+            return {"team1": p1 / total, "draw": draw / total, "team2": p2 / total}
+
+    row_team1 = row.get("team1")
+    row_team2 = row.get("team2")
+    if not row_team1 or not row_team2:
+        return None
+    direct = market_team_key(row_team1) == market_team_key(team1) and market_team_key(row_team2) == market_team_key(team2)
+    reverse = market_team_key(row_team1) == market_team_key(team2) and market_team_key(row_team2) == market_team_key(team1)
+    if not direct and not reverse:
+        return None
+    try:
+        p1 = float(row.get("team1_probability"))
+        p2 = float(row.get("team2_probability"))
+        draw = float(row.get("draw_probability", 0.0) or 0.0)
+    except (TypeError, ValueError):
+        return None
+    if reverse:
+        p1, p2 = p2, p1
+    total = p1 + p2 + draw
+    if total <= 0:
+        return None
+    return {"team1": p1 / total, "draw": draw / total, "team2": p2 / total}
+
+
+def find_market_match(signals: MarketSignals, team1: str, team2: str, default_weight: float) -> Optional[Dict[str, Any]]:
+    for row in signals.matches:
+        if not isinstance(row, dict):
+            continue
+        probabilities_row = market_match_probabilities(row, team1, team2)
+        if not probabilities_row:
+            continue
+        return {
+            "probabilities": probabilities_row,
+            "weight": row_market_weight(row, default_weight),
+            "source": row.get("source") or row.get("market") or "market",
+            "updated_at": row.get("updated_at"),
+        }
+    return None
+
+
+def blend_probabilities(model: Dict[str, float], market: Dict[str, float], weight: float) -> Dict[str, float]:
+    blended = {key: (1.0 - weight) * model.get(key, 0.0) + weight * market.get(key, 0.0) for key in ("team1", "draw", "team2")}
+    total = sum(blended.values())
+    if total <= 0:
+        return model
+    return {key: blended[key] / total for key in blended}
+
+
+def champion_market_probabilities(signals: MarketSignals, default_weight: float) -> Tuple[Dict[str, float], float, List[str]]:
+    rows = [row for row in signals.futures if isinstance(row, dict) and row.get("rank_type", "champion") == "champion"]
+    if not rows:
+        return {}, 0.0, []
+    raw: Dict[str, float] = {}
+    weights = []
+    warnings = []
+    for row in rows:
+        team = row.get("team")
+        if not team:
+            continue
+        try:
+            probability = float(row.get("champion_probability", row.get("probability")))
+        except (TypeError, ValueError):
+            warnings.append(f"Invalid champion probability for {team}")
+            continue
+        if probability > 0:
+            raw[str(team)] = probability
+            weights.append(row_market_weight(row, default_weight))
+    total = sum(raw.values())
+    if total <= 0:
+        return {}, 0.0, warnings
+    if total < 0.50:
+        warnings.append("Champion futures cover less than 50% total probability; skipping futures blend.")
+        return {}, 0.0, warnings
+    if total < 0.95:
+        warnings.append("Champion futures do not cover the full field; teams missing from futures receive zero market probability.")
+    normalized = {team: probability / total for team, probability in raw.items()}
+    weight = sum(weights) / len(weights) if weights else default_weight
+    return normalized, clamp(weight, 0.0, 0.65), warnings
+
+
 def tournament_year(row: Dict[str, str]) -> Optional[int]:
     tournament_id = row.get("tournament_id", "")
     match = re.search(r"WC-(\d{4})", tournament_id)
@@ -620,7 +796,7 @@ def public_rating_adjustment(team: str, public_ratings: Optional[PublicRatings])
 
 def team_rating(team: str, records: Dict[str, TeamRecord], historical: Dict[str, float], scorer_boost: Dict[str, float], public_ratings: Optional[PublicRatings] = None) -> float:
     record = records.get(team, TeamRecord(team=team))
-    sample_weight = min(1.0, record.played / 5.0)
+    sample_weight = min(1.0, record.played / 3.0)
     ppg = record.points / record.played if record.played else 1.0
     gdpg = record.gd / record.played if record.played else 0.0
     gfpg = record.gf / record.played if record.played else 1.0
@@ -863,6 +1039,14 @@ def render_history(rows: List[Dict[str, Any]], fmt: str, lang: str) -> str:
     return markdown_table([t["year"], t["position"], t["team"], t["code"]], ((r["year"], r["position"], display_team(r["team"], lang), r["code"]) for r in rows))
 
 
+def render_warnings(warnings: Iterable[str], lang: str) -> str:
+    rows = [(index, warning) for index, warning in enumerate(warnings, start=1) if warning]
+    if not rows:
+        return ""
+    t = TEXT[lang]
+    return f"## {t['warnings']}\n" + markdown_table(["#", t["warning"]], rows)
+
+
 def team_names_from_matches(matches: List[Dict[str, Any]]) -> List[str]:
     teams = set()
     for match in matches:
@@ -977,13 +1161,25 @@ def render_current(summary: Dict[str, Any], fmt: str, lang: str) -> str:
     if summary.get("rating_sources"):
         lines.append(markdown_table([t["item"], t["value"]], [(t["rating_sources"], ", ".join(summary["rating_sources"]))]))
         lines.append("")
+    warnings = render_warnings(summary.get("rating_warnings", []), lang)
+    if warnings:
+        lines.append(warnings)
+        lines.append("")
     return "\n".join(lines).rstrip()
 
 
-def next_round_predictions(data: Dict[str, Any], season: int, historical: Dict[str, float], public_ratings: Optional[PublicRatings]) -> Dict[str, Any]:
+def next_round_predictions(
+    data: Dict[str, Any],
+    season: int,
+    historical: Dict[str, float],
+    public_ratings: Optional[PublicRatings],
+    market_signals: Optional[MarketSignals] = None,
+    market_weight: float = 0.35,
+) -> Dict[str, Any]:
     matches = data.get("matches", [])
     records = build_current_records(matches)
     scorers = scorer_team_boost(matches)
+    market_signals = market_signals or MarketSignals()
     upcoming = [m for m in matches if not completed_score(m)]
     round_name = upcoming[0].get("round") if upcoming else None
     round_matches = [m for m in upcoming if m.get("round") == round_name]
@@ -995,7 +1191,9 @@ def next_round_predictions(data: Dict[str, Any], season: int, historical: Dict[s
         if unresolved:
             predictions.append({"date": match.get("date"), "round": match.get("round"), "team1": team1, "team2": team2, "status": "unresolved placeholder"})
             continue
-        probs = probabilities(team1, team2, records, historical, scorers, allow_draw=is_group_match(match), public_ratings=public_ratings)
+        model_probs = probabilities(team1, team2, records, historical, scorers, allow_draw=is_group_match(match), public_ratings=public_ratings)
+        market = find_market_match(market_signals, str(team1), str(team2), market_weight)
+        probs = blend_probabilities(model_probs, market["probabilities"], market["weight"]) if market else model_probs
         predictions.append(
             {
                 "date": match.get("date"),
@@ -1005,6 +1203,15 @@ def next_round_predictions(data: Dict[str, Any], season: int, historical: Dict[s
                 "team1_probability": round(probs["team1"], 3),
                 "draw_probability": round(probs["draw"], 3),
                 "team2_probability": round(probs["team2"], 3),
+                "model_team1_probability": round(model_probs["team1"], 3),
+                "model_draw_probability": round(model_probs["draw"], 3),
+                "model_team2_probability": round(model_probs["team2"], 3),
+                "market_team1_probability": round(market["probabilities"]["team1"], 3) if market else None,
+                "market_draw_probability": round(market["probabilities"]["draw"], 3) if market else None,
+                "market_team2_probability": round(market["probabilities"]["team2"], 3) if market else None,
+                "market_weight": round(market["weight"], 3) if market else 0.0,
+                "market_source": market["source"] if market else None,
+                "market_updated_at": market.get("updated_at") if market else None,
                 "status": "forecast",
             }
         )
@@ -1015,13 +1222,25 @@ def next_round_predictions(data: Dict[str, Any], season: int, historical: Dict[s
         "predictions": predictions,
         "rating_sources": public_ratings.sources if public_ratings else [],
         "rating_warnings": public_ratings.warnings if public_ratings else [],
+        "market_sources": market_signals.sources,
+        "market_warnings": market_signals.warnings,
     }
 
 
-def final_predictions(data: Dict[str, Any], season: int, historical: Dict[str, float], runs: int, seed: int, public_ratings: Optional[PublicRatings]) -> Dict[str, Any]:
+def final_predictions(
+    data: Dict[str, Any],
+    season: int,
+    historical: Dict[str, float],
+    runs: int,
+    seed: int,
+    public_ratings: Optional[PublicRatings],
+    market_signals: Optional[MarketSignals] = None,
+    market_weight: float = 0.35,
+) -> Dict[str, Any]:
     matches = data.get("matches", [])
     base_records = build_current_records(matches)
     scorers = scorer_team_boost(matches)
+    market_signals = market_signals or MarketSignals()
     counters = {
         "champion": Counter(),
         "runner_up": Counter(),
@@ -1044,6 +1263,24 @@ def final_predictions(data: Dict[str, Any], season: int, historical: Dict[str, f
             {"team": team, "probability": round(count / runs, 4), "count": count}
             for team, count in counter.most_common(12)
         ]
+    market_futures, futures_weight, futures_warnings = champion_market_probabilities(market_signals, market_weight)
+    if market_futures:
+        model_champion = {team: count / runs for team, count in counters["champion"].items()}
+        teams = set(model_champion) | set(market_futures)
+        blended = []
+        for team in teams:
+            probability = (1.0 - futures_weight) * model_champion.get(team, 0.0) + futures_weight * market_futures.get(team, 0.0)
+            blended.append(
+                {
+                    "team": team,
+                    "probability": round(probability, 4),
+                    "model_probability": round(model_champion.get(team, 0.0), 4),
+                    "market_probability": round(market_futures.get(team, 0.0), 4),
+                    "market_weight": round(futures_weight, 3),
+                    "count": counters["champion"].get(team, 0),
+                }
+            )
+        rankings["champion"] = sorted(blended, key=lambda row: row["probability"], reverse=True)[:12]
     return {
         "season": season,
         "target": "final",
@@ -1063,6 +1300,8 @@ def final_predictions(data: Dict[str, Any], season: int, historical: Dict[str, f
         "method": "Transparent heuristic plus Monte Carlo simulation over remaining fixtures.",
         "rating_sources": public_ratings.sources if public_ratings else [],
         "rating_warnings": public_ratings.warnings if public_ratings else [],
+        "market_sources": market_signals.sources,
+        "market_warnings": market_signals.warnings + futures_warnings,
     }
 
 
@@ -1074,8 +1313,11 @@ def render_prediction(result: Dict[str, Any], fmt: str, lang: str) -> str:
         rows = []
         for row in result["predictions"]:
             if row["status"] != "forecast":
-                rows.append((row.get("date", ""), display_team(row.get("team1", ""), lang), display_team(row.get("team2", ""), lang), t["unresolved_placeholder"], "", "", ""))
+                rows.append((row.get("date", ""), display_team(row.get("team1", ""), lang), display_team(row.get("team2", ""), lang), t["unresolved_placeholder"], "", "", "", ""))
             else:
+                market_signal = t["none"]
+                if row.get("market_source"):
+                    market_signal = f"{row['market_source']} / w={row.get('market_weight', 0):.0%}"
                 rows.append(
                     (
                         row["date"],
@@ -1085,21 +1327,23 @@ def render_prediction(result: Dict[str, Any], fmt: str, lang: str) -> str:
                         f"{row['team1_probability']:.1%}",
                         f"{row['draw_probability']:.1%}",
                         f"{row['team2_probability']:.1%}",
+                        market_signal,
                     )
                 )
         title = result.get("round") or t["no_upcoming_round"]
-        return (
+        info_rows = [
+            (t["round"], title),
+            (t["rating_sources"], ", ".join(result.get("rating_sources") or []) or t["none"]),
+            (t["market_sources"], ", ".join(result.get("market_sources") or []) or t["none"]),
+        ]
+        output = (
             f"# {t['next_round_forecast']}\n\n"
-            + markdown_table(
-                [t["item"], t["value"]],
-                [
-                    (t["round"], title),
-                    (t["rating_sources"], ", ".join(result.get("rating_sources") or []) or t["none"]),
-                ],
-            )
+            + markdown_table([t["item"], t["value"]], info_rows)
             + "\n\n"
-            + markdown_table([t["date"], t["team1"], t["team2"], t["status"], t["team1"], t["draw"], t["team2"]], rows)
+            + markdown_table([t["date"], t["team1"], t["team2"], t["status"], t["team1"], t["draw"], t["team2"], t["market_signal"]], rows)
         )
+        warnings = render_warnings((result.get("rating_warnings") or []) + (result.get("market_warnings") or []), lang)
+        return output + ("\n\n" + warnings if warnings else "")
     lines = [
         f"# {t['final_ranking_forecast']}",
         "",
@@ -1110,6 +1354,7 @@ def render_prediction(result: Dict[str, Any], fmt: str, lang: str) -> str:
                 (t["seed"], result["seed"]),
                 (t["method"], t["method_text"]),
                 (t["rating_sources"], ", ".join(result.get("rating_sources") or []) or t["none"]),
+                (t["market_sources"], ", ".join(result.get("market_sources") or []) or t["none"]),
             ],
         ),
         "",
@@ -1134,7 +1379,27 @@ def render_prediction(result: Dict[str, Any], fmt: str, lang: str) -> str:
     labels = {"champion": t["champion"], "runner_up": t["runner_up"], "third": t["third"], "fourth": t["fourth"]}
     for key, label in labels.items():
         lines.append(f"## {label}")
-        lines.append(markdown_table([t["team"], t["probability"]], ((display_team(row["team"], lang), f"{row['probability']:.1%}") for row in result["rankings"][key])))
+        if key == "champion" and any("market_probability" in row for row in result["rankings"][key]):
+            lines.append(
+                markdown_table(
+                    [t["team"], t["blended_probability"], t["model_probability"], t["market_probability"]],
+                    (
+                        (
+                            display_team(row["team"], lang),
+                            f"{row['probability']:.1%}",
+                            f"{row.get('model_probability', 0.0):.1%}",
+                            f"{row.get('market_probability', 0.0):.1%}",
+                        )
+                        for row in result["rankings"][key]
+                    ),
+                )
+            )
+        else:
+            lines.append(markdown_table([t["team"], t["probability"]], ((display_team(row["team"], lang), f"{row['probability']:.1%}") for row in result["rankings"][key])))
+        lines.append("")
+    warnings = render_warnings((result.get("rating_warnings") or []) + (result.get("market_warnings") or []), lang)
+    if warnings:
+        lines.append(warnings)
         lines.append("")
     return "\n".join(lines).rstrip()
 
@@ -1148,6 +1413,8 @@ def add_common_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--elo-url", help="Override World Football Elo ratings URL.")
     parser.add_argument("--use-fifa-ranking", action="store_true", help="Fetch FIFA rankings for tournament teams. Slower because FIFA pages are loaded per team.")
     parser.add_argument("--fifa-url-template", help="Override FIFA team ranking URL template. Use {code} for the country code.")
+    parser.add_argument("--market-signals-file", help="Optional JSON file with match odds or prediction-market probabilities to blend into forecasts.")
+    parser.add_argument("--market-weight", type=float, default=0.35, help="Default market blend weight for usable market signals.")
 
 
 def load_ratings_for_args(data: Dict[str, Any], args: argparse.Namespace) -> PublicRatings:
@@ -1199,12 +1466,14 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 0
 
         historical, _ = load_historical_strength(args.fjelstul_base_url, current_year=args.season)
+        market_signals = load_market_signals(args.market_signals_file)
+        market_weight = clamp(args.market_weight, 0.0, 0.65)
         if args.target == "next-round":
-            print(render_prediction(next_round_predictions(data, args.season, historical, public_ratings), args.format, args.lang))
+            print(render_prediction(next_round_predictions(data, args.season, historical, public_ratings, market_signals, market_weight), args.format, args.lang))
         else:
             if args.runs <= 0:
                 raise DataError("--runs must be positive")
-            print(render_prediction(final_predictions(data, args.season, historical, args.runs, args.seed, public_ratings), args.format, args.lang))
+            print(render_prediction(final_predictions(data, args.season, historical, args.runs, args.seed, public_ratings, market_signals, market_weight), args.format, args.lang))
         return 0
     except DataError as exc:
         print(f"worldcup_forecast: {exc}", file=sys.stderr)

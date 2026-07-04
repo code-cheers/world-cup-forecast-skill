@@ -1,0 +1,47 @@
+name: Daily World Cup forecast
+
+on:
+  schedule:
+    # 08:00 Asia/Shanghai. GitHub Actions cron uses UTC.
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily-world-cup-forecast-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  forecast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Generate forecast report
+        run: |
+          python scripts/generate_daily_report.py \
+            --season 2026 \
+            --runs 5000
+
+      - name: Commit forecast report
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add forecasts
+          if git diff --cached --quiet; then
+            echo "No forecast changes to commit."
+          else
+            git commit -m "Update daily World Cup forecast $(TZ=Asia/Shanghai date +'%Y-%m-%d')"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
