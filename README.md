@@ -10,7 +10,7 @@
 - 通过蒙特卡洛模拟预测最终冠军、亚军、第三名、第四名概率。
 - 输出最可能的冠亚季军组合，而不是把单项最高概率硬拼成一个可能重复球队的组合。
 - 可选融合 Polymarket、公开赔率或其他市场信号，用市场共识校准基本面模型。
-- 每天生成 Markdown 预测报告，并通过 GitHub Actions 提交到 `forecasts/`。
+- 每天生成“Markdown + SVG 看板”预测报告，并通过 GitHub Actions 提交到 `forecasts/`。
 
 这个 skill 的目标是给出透明、可复现的方向性预测，不是博彩建议，也不是保证结果。
 
@@ -40,6 +40,7 @@ python scripts/generate_daily_report.py --season 2026 --runs 5000
 | World Football Elo | 当前国家队公开 Elo 强度，默认启用 |
 | FIFA/Coca-Cola Men's World Ranking | 可选官方排名和积分，使用 `--use-fifa-ranking` 启用 |
 | 市场信号 JSON | 可选，融合 Polymarket、公开赔率或人工整理的市场概率 |
+| `lipis/flag-icons` | SVG 看板里的国家/代表队旗帜，按固定版本缓存 |
 
 OpenFootball 数据不是秒级直播源，可能有人工更新延迟。实时阵容、xG、射门、赔率、攻势图和完整球员事件通常需要带 API key 的数据商。
 
@@ -114,10 +115,15 @@ python scripts/generate_daily_report.py --season 2026 --runs 5000
 
 | 文件 | 说明 |
 | --- | --- |
-| `forecasts/latest.md` | 最新日报 |
-| `forecasts/daily/YYYY-MM-DD.md` | 按日期保存的日报快照 |
+| `forecasts/latest.md` | 最新日报，首屏嵌入最新 SVG 看板 |
+| `forecasts/daily/YYYY-MM-DD.md` | 按日期保存的日报快照，首屏嵌入当日 SVG 看板 |
+| `forecasts/assets/latest-dashboard.svg` | 最新日报看板图 |
+| `forecasts/assets/YYYY-MM-DD-dashboard.svg` | 当日快照看板图 |
+| `forecasts/assets/flags/` | 已使用的 SVG 国旗缓存和 `flag-icons` 许可证 |
 
 这个方案使用 GitHub Actions 云端运行，不要求本地 Codex app 开机，也不要求 OpenAI API key。后续如果要让 Codex 在报告里写更复杂的中文解读，可以再接入 Codex GitHub Action 或 Codex automation。
+
+日报 Markdown 使用 `assets/daily-report-template.md` 作为固定模板。展示顺序是：SVG 看板、三条结论、可审计明细表。这样 GitHub 仓库页不需要渲染 HTML，也能先看到图形化结果；表格仍保留在后面，方便检查具体概率和数据源警告。
 
 ## 输出解读
 

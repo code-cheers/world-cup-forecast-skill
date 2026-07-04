@@ -9,7 +9,7 @@ description: Fetch and forecast FIFA Men's World Cup data with free-first public
 
 Use this skill to fetch historical FIFA Men's World Cup rankings, summarize the current tournament state, aggregate current-tournament scorers, and produce transparent heuristic forecasts for upcoming matches or final rankings. When odds or prediction-market data is available, blend it as a market calibration layer instead of replacing the underlying model.
 
-Prefer the bundled CLI for repeatable data fetching and simulation:
+Prefer the bundled CLI for repeatable data fetching, simulation, and daily visual reports:
 
 ```bash
 python scripts/worldcup_forecast.py history --since 1926 --positions 4 --format markdown
@@ -20,7 +20,7 @@ python scripts/worldcup_forecast.py predict --season 2026 --target next-round --
 python scripts/generate_daily_report.py --season 2026 --runs 5000
 ```
 
-Markdown output defaults to Chinese and should be table-first: summaries, predictions, scorers, group tables, and final ranking probabilities should be presented primarily as Markdown tables. Chinese Markdown output should display common country/team names in Chinese, such as `阿根廷` instead of `Argentina`; use `--lang en` for English Markdown output and `--lang zh` to be explicit. Use `--format json` when the result needs further processing; JSON keys stay stable regardless of `--lang`. Use `--seed` with `predict --target final` when reproducibility matters.
+Daily GitHub reports should be visual-first: the first screen should embed the generated SVG dashboard, then summarize 3 concise conclusions, then keep Markdown tables as auditable detail. Chinese Markdown output should display common country/team names in Chinese, such as `阿根廷` instead of `Argentina`; use `--lang en` for English Markdown output and `--lang zh` to be explicit. Use `--format json` when the result needs further processing; JSON keys stay stable regardless of `--lang`. Use `--seed` with `predict --target final` when reproducibility matters.
 
 Public ratings:
 
@@ -52,7 +52,7 @@ python scripts/worldcup_forecast.py predict --season 2026 --target final --runs 
    - If no reliable odds or prediction-market snapshot is available, run without `--market-signals-file`.
    - If a market snapshot is available, normalize it into the JSON schema shown in `examples/market-signals.example.json` and pass `--market-signals-file`.
 3. Run the CLI from this skill directory or pass the full path to `scripts/worldcup_forecast.py`.
-4. Prefer table-first Markdown in the final answer. Avoid joining team names and venues without a separator; keep date, matchup, group, and venue in separate table columns.
+4. Prefer visual-first Markdown for daily reports: generated SVG dashboard first, short conclusions second, tables third. Avoid joining team names and venues without a separator; keep date, matchup, group, and venue in separate table columns.
 5. Match the user's language. For Chinese requests, omit `--lang` or pass `--lang zh`; for English requests, pass `--lang en`.
 6. State that v1 is free-first and refresh-on-run, not second-by-second live tracking.
 7. If using market signals, distinguish `模型` / `市场` / `融合` probabilities and call out disagreement games as lower-confidence.
@@ -97,6 +97,14 @@ Use `scripts/generate_daily_report.py` to write a report into `forecasts/`:
 python scripts/generate_daily_report.py --season 2026 --runs 5000
 ```
 
-The repository includes `.github/workflows/daily-world-cup-forecast.yml`, scheduled for 08:00 Asia/Shanghai. The workflow generates `forecasts/latest.md` and `forecasts/daily/YYYY-MM-DD.md`, then commits them back to GitHub.
+The repository includes `.github/workflows/daily-world-cup-forecast.yml`, scheduled for 08:00 Asia/Shanghai. The workflow generates:
+
+- `forecasts/latest.md`
+- `forecasts/daily/YYYY-MM-DD.md`
+- `forecasts/assets/latest-dashboard.svg`
+- `forecasts/assets/YYYY-MM-DD-dashboard.svg`
+- cached SVG flags under `forecasts/assets/flags/`
+
+The Markdown report is filled from `assets/daily-report-template.md` so the daily format remains consistent. The dashboard inlines SVG flags from `lipis/flag-icons` pinned to a fixed version via jsDelivr; if a flag cannot be fetched, the dashboard uses a small text fallback instead of failing the report.
 
 This daily report does not require Codex cloud or an OpenAI API key because the forecast is produced by the deterministic local CLI. If the report should include Codex-written narrative analysis, use the Codex GitHub Action or a Codex automation as a later layer.

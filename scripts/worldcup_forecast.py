@@ -17,6 +17,7 @@ import os
 import random
 import re
 import sys
+import time
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from datetime import date
@@ -105,6 +106,76 @@ TEAM_ZH = {
     "Uzbekistan": "乌兹别克斯坦",
     "West Germany": "西德",
     "Yugoslavia": "南斯拉夫",
+}
+TEAM_FLAG_CODES = {
+    "Algeria": "dz",
+    "Argentina": "ar",
+    "Australia": "au",
+    "Austria": "at",
+    "Belgium": "be",
+    "Bosnia & Herzegovina": "ba",
+    "Brazil": "br",
+    "Cameroon": "cm",
+    "Canada": "ca",
+    "Cape Verde": "cv",
+    "Chile": "cl",
+    "Colombia": "co",
+    "Costa Rica": "cr",
+    "Croatia": "hr",
+    "Curaçao": "cw",
+    "Czech Republic": "cz",
+    "Czechoslovakia": "cz",
+    "Denmark": "dk",
+    "DR Congo": "cd",
+    "Ecuador": "ec",
+    "Egypt": "eg",
+    "England": "gb-eng",
+    "France": "fr",
+    "Germany": "de",
+    "Ghana": "gh",
+    "Haiti": "ht",
+    "Hungary": "hu",
+    "Iran": "ir",
+    "Iraq": "iq",
+    "Italy": "it",
+    "Ivory Coast": "ci",
+    "Côte d'Ivoire": "ci",
+    "Japan": "jp",
+    "Jordan": "jo",
+    "Mexico": "mx",
+    "Morocco": "ma",
+    "Netherlands": "nl",
+    "New Zealand": "nz",
+    "Nigeria": "ng",
+    "North Korea": "kp",
+    "Norway": "no",
+    "Panama": "pa",
+    "Paraguay": "py",
+    "Peru": "pe",
+    "Poland": "pl",
+    "Portugal": "pt",
+    "Qatar": "qa",
+    "Romania": "ro",
+    "Saudi Arabia": "sa",
+    "Scotland": "gb-sct",
+    "Senegal": "sn",
+    "South Africa": "za",
+    "South Korea": "kr",
+    "Soviet Union": "ru",
+    "Spain": "es",
+    "Sweden": "se",
+    "Switzerland": "ch",
+    "Tunisia": "tn",
+    "Turkey": "tr",
+    "Türkiye": "tr",
+    "United States": "us",
+    "Uruguay": "uy",
+    "USA": "us",
+    "Uzbekistan": "uz",
+    "Wales": "gb-wls",
+    "West Germany": "de",
+    "Yugoslavia": "rs",
+    "Zaire": "cd",
 }
 POSITION_POINTS = {1: 8.0, 2: 5.0, 3: 3.0, 4: 2.0}
 GROUP_RE = re.compile(r"^([123])([A-L])$")
@@ -294,16 +365,29 @@ class TeamRecord:
 
 def fetch_text(url: str, timeout: int = 20) -> str:
     request = Request(url, headers={"User-Agent": "world-cup-forecast-skill/1.0"})
-    try:
-        with urlopen(request, timeout=timeout) as response:
-            return response.read().decode("utf-8")
-    except HTTPError as exc:
-        raise DataError(f"HTTP {exc.code} while fetching {url}") from exc
-    except URLError as exc:
-        reason = getattr(exc, "reason", exc)
-        raise DataError(f"Network error while fetching {url}: {reason}") from exc
-    except TimeoutError as exc:
-        raise DataError(f"Timed out while fetching {url}") from exc
+    last_error: Exception | None = None
+    for attempt in range(3):
+        try:
+            with urlopen(request, timeout=timeout) as response:
+                return response.read().decode("utf-8")
+        except HTTPError as exc:
+            if 400 <= exc.code < 500:
+                raise DataError(f"HTTP {exc.code} while fetching {url}") from exc
+            last_error = exc
+        except (URLError, TimeoutError, OSError) as exc:
+            last_error = exc
+        if attempt < 2:
+            time.sleep(0.75 * (attempt + 1))
+    if isinstance(last_error, HTTPError):
+        raise DataError(f"HTTP {last_error.code} while fetching {url}") from last_error
+    if isinstance(last_error, URLError):
+        reason = getattr(last_error, "reason", last_error)
+        raise DataError(f"Network error while fetching {url}: {reason}") from last_error
+    if isinstance(last_error, TimeoutError):
+        raise DataError(f"Timed out while fetching {url}") from last_error
+    if isinstance(last_error, OSError):
+        raise DataError(f"Network error while fetching {url}: {last_error}") from last_error
+    raise DataError(f"Network error while fetching {url}")
 
 
 def fetch_json(url: str) -> Dict[str, Any]:
@@ -1032,6 +1116,18 @@ def display_team(team: Any, lang: str) -> str:
     return TEAM_ZH.get(name, name)
 
 
+def team_flag_code(team: Any) -> Optional[str]:
+    name = "" if team is None else str(team)
+    for candidate in (name, TEAM_ALIASES.get(name, "")):
+        if candidate and candidate in TEAM_FLAG_CODES:
+            return TEAM_FLAG_CODES[candidate]
+        normalized = normalize_team_name(candidate)
+        for key, code in TEAM_FLAG_CODES.items():
+            if normalize_team_name(key) == normalized:
+                return code
+    return None
+
+
 def render_history(rows: List[Dict[str, Any]], fmt: str, lang: str) -> str:
     if fmt == "json":
         return json.dumps({"historical_rankings": rows}, ensure_ascii=False, indent=2)
@@ -1147,7 +1243,7 @@ def render_current(summary: Dict[str, Any], fmt: str, lang: str) -> str:
                 [t["team"], t["elo_rank"], t["elo_rating"], t["fifa_rank"], t["fifa_points"]],
                 (
                     (
-                        row["team"],
+                        display_team(row["team"], lang),
                         row.get("elo_rank") or "",
                         row.get("elo_rating") or "",
                         row.get("fifa_rank") or "",
