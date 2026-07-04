@@ -177,6 +177,28 @@ TEAM_FLAG_CODES = {
     "Yugoslavia": "rs",
     "Zaire": "cd",
 }
+PLAYER_ZH = {
+    "Lionel Messi": "梅西",
+    "Kylian Mbappé": "姆巴佩",
+    "Erling Haaland": "哈兰德",
+    "Harry Kane": "凯恩",
+    "Ismaïla Sarr": "伊斯梅拉·萨尔",
+    "Mikel Oyarzabal": "奥亚萨瓦尔",
+    "Ousmane Dembélé": "登贝莱",
+    "Vinícius Júnior": "维尼修斯",
+    "Brian Brobbey": "布罗贝",
+    "Cody Gakpo": "加克波",
+    "Cristiano Ronaldo": "C 罗",
+    "Deniz Undav": "昂达夫",
+    "Elijah Just": "伊莱贾·贾斯特",
+    "Folarin Balogun": "巴洛贡",
+    "Ismael Saibari": "赛巴里",
+    "Johan Manzambi": "曼赞比",
+    "Jonathan David": "乔纳森·戴维",
+    "Julián Quiñones": "基尼奥内斯",
+    "Kai Havertz": "哈弗茨",
+    "Matheus Cunha": "马特乌斯·库尼亚",
+}
 POSITION_POINTS = {1: 8.0, 2: 5.0, 3: 3.0, 4: 2.0}
 GROUP_RE = re.compile(r"^([123])([A-L])$")
 THIRD_RE = re.compile(r"^3([A-L](?:/[A-L])*)$")
@@ -1116,6 +1138,13 @@ def display_team(team: Any, lang: str) -> str:
     return TEAM_ZH.get(name, name)
 
 
+def display_player(player: Any, lang: str) -> str:
+    name = "" if player is None else str(player)
+    if lang != "zh":
+        return name
+    return PLAYER_ZH.get(name, name)
+
+
 def team_flag_code(team: Any) -> Optional[str]:
     name = "" if team is None else str(team)
     for candidate in (name, TEAM_ALIASES.get(name, "")):
@@ -1229,7 +1258,7 @@ def render_current(summary: Dict[str, Any], fmt: str, lang: str) -> str:
         f"## {t['top_scorers']}",
     ]
     scorers = summary["top_scorers"]
-    lines.append(markdown_table([t["player"], t["team"], t["goals"]], ((s["player"], display_team(s["team"], lang), s["goals"]) for s in scorers)) if scorers else t["no_scorers"])
+    lines.append(markdown_table([t["player"], t["team"], t["goals"]], ((display_player(s["player"], lang), display_team(s["team"], lang), s["goals"]) for s in scorers)) if scorers else t["no_scorers"])
     lines.append("")
     lines.append(f"## {t['group_tables']}")
     for group, rows in summary["groups"].items():

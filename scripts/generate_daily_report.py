@@ -158,6 +158,10 @@ def display_team(team: object, lang: str) -> str:
     return forecast.display_team(team, lang)
 
 
+def display_player(player: object, lang: str) -> str:
+    return forecast.display_player(player, lang)
+
+
 def truncate(value: object, limit: int) -> str:
     text = "" if value is None else str(value)
     return text if len(text) <= limit else text[: max(0, limit - 3)] + "..."
@@ -220,6 +224,23 @@ def confidence_label(probability: float, lang: str) -> tuple[str, str]:
     return ("低置信" if lang == "zh" else "Low", "low")
 
 
+def display_round(round_name: object, lang: str) -> str:
+    text = "" if round_name is None else str(round_name)
+    if lang != "zh":
+        return text or "Next Round"
+    known = {
+        "Round of 32": "32 强预测",
+        "Round of 16": "16 强预测",
+        "Quarter-finals": "8 强预测",
+        "Quarterfinals": "8 强预测",
+        "Semi-finals": "半决赛预测",
+        "Semifinals": "半决赛预测",
+        "Match for third place": "三四名决赛预测",
+        "Final": "决赛预测",
+    }
+    return known.get(text, text or "下一轮预测")
+
+
 def forecast_rows(next_round: dict[str, object]) -> list[dict[str, object]]:
     return [row for row in next_round.get("predictions", []) if isinstance(row, dict) and row.get("status") == "forecast"]
 
@@ -238,25 +259,38 @@ def build_conclusions(current: dict[str, object], next_round: dict[str, object],
     top = champion_rows[0] if champion_rows else {}
     clear_matches = [row for row in matches if favorite_for_match(row)[1] >= 0.80]
     tight_matches = [row for row in matches if favorite_for_match(row)[1] < 0.58]
-    warnings = set(current.get("rating_warnings", []) or [])
-    warnings.update(next_round.get("rating_warnings", []) or [])
-    warnings.update(next_round.get("market_warnings", []) or [])
-    warnings.update(final.get("rating_warnings", []) or [])
-    warnings.update(final.get("market_warnings", []) or [])
     market_sources = (next_round.get("market_sources") or []) + (final.get("market_sources") or [])
     if lang == "zh":
         lines = []
         if top:
             lines.append(f"- 冠军主线：{display_team(top.get('team'), lang)} 以 `{pct(top.get('probability'))}` 排在第一。")
         lines.append(f"- 下一轮：`{len(clear_matches)}` 场是高置信方向，`{len(tight_matches)}` 场是低置信接近盘。")
-        lines.append(f"- 市场信号：{', '.join(dict.fromkeys(market_sources)) if market_sources else '未配置'}。数据警告 `{len([w for w in warnings if w])}` 条。")
+        lines.append(f"- 市场信号：{', '.join(dict.fromkeys(market_sources)) if market_sources else '未配置'}。")
         return "\n".join(lines)
     lines = []
     if top:
         lines.append(f"- Champion line: {display_team(top.get('team'), lang)} leads at `{pct(top.get('probability'))}`.")
     lines.append(f"- Next round: `{len(clear_matches)}` high-confidence favorites and `{len(tight_matches)}` low-confidence near coin flips.")
-    lines.append(f"- Market signals: {', '.join(dict.fromkeys(market_sources)) if market_sources else 'not configured'}. Data warnings: `{len([w for w in warnings if w])}`.")
+    lines.append(f"- Market signals: {', '.join(dict.fromkeys(market_sources)) if market_sources else 'not configured'}.")
     return "\n".join(lines)
+
+
+def hidden_report_warning(warning: object) -> bool:
+    text = "" if warning is None else str(warning)
+    if not text:
+        return True
+    return "international-football.net/elo-ratings-table" in text and (
+        "Network error" in text or "Timed out" in text or "Remote end closed connection" in text
+    )
+
+
+def filter_report_warnings(result: dict[str, object]) -> dict[str, object]:
+    filtered = dict(result)
+    for key in ("rating_warnings", "market_warnings"):
+        warnings = filtered.get(key)
+        if isinstance(warnings, list):
+            filtered[key] = [warning for warning in warnings if not hidden_report_warning(warning)]
+    return filtered
 
 
 def render_metadata(labels: dict[str, str], now: datetime, args: argparse.Namespace, seed: int, market_line: str) -> str:
@@ -295,7 +329,7 @@ def load_daily_data(args: argparse.Namespace, seed: int) -> tuple[dict[str, obje
     current = forecast.current_summary(data, args.season, public_ratings)
     next_round = forecast.next_round_predictions(data, args.season, historical, public_ratings, market_signals, market_weight)
     final = forecast.final_predictions(data, args.season, historical, args.runs, seed, public_ratings, market_signals, market_weight)
-    return current, next_round, final
+    return filter_report_warnings(current), filter_report_warnings(next_round), filter_report_warnings(final)
 
 
 def render_dashboard(
@@ -317,11 +351,6 @@ def render_dashboard(
     podium_rows = final.get("podiums", []) if isinstance(final.get("podiums"), list) else []
     matches = forecast_rows(next_round)
     scorers = current.get("top_scorers", []) if isinstance(current.get("top_scorers"), list) else []
-    warnings = set(current.get("rating_warnings", []) or [])
-    warnings.update(next_round.get("rating_warnings", []) or [])
-    warnings.update(next_round.get("market_warnings", []) or [])
-    warnings.update(final.get("rating_warnings", []) or [])
-    warnings.update(final.get("market_warnings", []) or [])
     market_sources = list(dict.fromkeys((next_round.get("market_sources") or []) + (final.get("market_sources") or [])))
     rating_sources = list(dict.fromkeys((current.get("rating_sources") or []) + (next_round.get("rating_sources") or []) + (final.get("rating_sources") or [])))
 
@@ -342,7 +371,6 @@ def render_dashboard(
         f"{current.get('completed_matches', 0)} completed",
         f"{current.get('remaining_matches', 0)} remaining",
         f"market: {', '.join(market_sources) if market_sources else ('未配置' if lang == 'zh' else 'none')}",
-        f"warnings: {len([w for w in warnings if w])}",
     ]
     x = 42
     for chip in chips:
@@ -366,29 +394,29 @@ def render_dashboard(
         parts.append(f'<rect x="270" y="{y + 9}" width="{230 * probability / max_champion:.1f}" height="18" rx="9" fill="{colors[index - 1]}"/>')
         parts.append(f'<text x="518" y="{y + 24}" text-anchor="end" class="number">{esc(pct(probability))}</text>')
 
-    parts.append(card(620, 160, 540, 760))
-    parts.append(section_title(str(next_round.get("round") or ("下一轮" if lang == "zh" else "Next Round")), 646, 202))
+    parts.append(card(610, 160, 550, 805))
+    parts.append(section_title(display_round(next_round.get("round"), lang), 636, 202))
     for index, row in enumerate(matches[:8], start=1):
-        y = 222 + (index - 1) * 82
+        y = 224 + (index - 1) * 88
         team1 = row.get("team1")
         team2 = row.get("team2")
         p1 = float(row.get("team1_probability") or 0.0)
         p2 = float(row.get("team2_probability") or 0.0)
         _, favorite_probability = favorite_for_match(row)
         conf_text, conf_class = confidence_label(favorite_probability, lang)
-        parts.append(f'<rect x="646" y="{y}" width="488" height="74" rx="8" fill="#fbfcfa" stroke="#e2e6df"/>')
-        parts.append(f'<text x="662" y="{y + 22}" class="small">{esc(row.get("date") or "")}</text>')
-        parts.append(f'<rect x="1060" y="{y + 9}" width="58" height="24" rx="12" class="{conf_class}"/>')
-        parts.append(f'<text x="1089" y="{y + 26}" text-anchor="middle" class="chip-text {conf_class}-text">{esc(conf_text)}</text>')
-        parts.append(inline_flag(team1, 662, y + 34, 31, 22, flag_dir, fetch_flags))
-        parts.append(f'<text x="702" y="{y + 51}" class="label">{esc(truncate(display_team(team1, lang), 7))}</text>')
-        parts.append(f'<text x="798" y="{y + 68}" text-anchor="end" class="number">{esc(pct(p1))}</text>')
-        parts.append(f'<rect x="836" y="{y + 56}" width="138" height="12" rx="6" class="bar-bg"/>')
-        parts.append(f'<rect x="836" y="{y + 56}" width="{138 * p1:.1f}" height="12" rx="6" class="bar-a"/>')
-        parts.append(f'<rect x="{836 + 138 * p1:.1f}" y="{y + 56}" width="{138 * p2:.1f}" height="12" rx="6" class="bar-b"/>')
-        parts.append(inline_flag(team2, 994, y + 34, 31, 22, flag_dir, fetch_flags))
-        parts.append(f'<text x="1034" y="{y + 51}" class="label">{esc(truncate(display_team(team2, lang), 7))}</text>')
-        parts.append(f'<text x="1118" y="{y + 68}" text-anchor="end" class="number">{esc(pct(p2))}</text>')
+        parts.append(f'<rect x="636" y="{y}" width="498" height="78" rx="8" fill="#fbfcfa" stroke="#e2e6df"/>')
+        parts.append(f'<text x="656" y="{y + 23}" class="small">{esc(row.get("date") or "")}</text>')
+        parts.append(f'<rect x="1042" y="{y + 11}" width="74" height="28" rx="14" class="{conf_class}"/>')
+        parts.append(f'<text x="1079" y="{y + 30}" text-anchor="middle" class="chip-text {conf_class}-text">{esc(conf_text)}</text>')
+        parts.append(inline_flag(team1, 656, y + 40, 34, 24, flag_dir, fetch_flags))
+        parts.append(f'<text x="700" y="{y + 55}" class="label">{esc(truncate(display_team(team1, lang), 7))}</text>')
+        parts.append(f'<text x="800" y="{y + 72}" text-anchor="end" class="number">{esc(pct(p1))}</text>')
+        parts.append(f'<rect x="824" y="{y + 60}" width="128" height="12" rx="6" class="bar-bg"/>')
+        parts.append(f'<rect x="824" y="{y + 60}" width="{128 * p1:.1f}" height="12" rx="6" class="bar-a"/>')
+        parts.append(f'<rect x="{824 + 128 * p1:.1f}" y="{y + 60}" width="{128 * p2:.1f}" height="12" rx="6" class="bar-b"/>')
+        parts.append(inline_flag(team2, 972, y + 40, 34, 24, flag_dir, fetch_flags))
+        parts.append(f'<text x="1016" y="{y + 55}" class="label">{esc(truncate(display_team(team2, lang), 7))}</text>')
+        parts.append(f'<text x="1118" y="{y + 72}" text-anchor="end" class="number">{esc(pct(p2))}</text>')
 
     parts.append(card(40, 620, 540, 405))
     parts.append(section_title("最可能冠亚季军组合" if lang == "zh" else "Most Likely Podiums", 66, 662))
@@ -413,12 +441,12 @@ def render_dashboard(
         team = row.get("team")
         parts.append(f'<text x="66" y="{y + 24}" class="small">{index}</text>')
         parts.append(inline_flag(team, 92, y + 4, 32, 23, flag_dir, fetch_flags))
-        parts.append(f'<text x="136" y="{y + 23}" class="label">{esc(truncate(row.get("player"), 22))}</text>')
+        parts.append(f'<text x="136" y="{y + 23}" class="label">{esc(truncate(display_player(row.get("player"), lang), 22))}</text>')
         parts.append(f'<text x="410" y="{y + 23}" class="small">{esc(display_team(team, lang))}</text>')
         parts.append(f'<text x="536" y="{y + 23}" text-anchor="end" class="number">{esc(row.get("goals", ""))}</text>')
 
-    parts.append(card(620, 950, 540, 415))
-    parts.append(section_title("证据栈与风险" if lang == "zh" else "Evidence And Risk", 646, 992))
+    parts.append(card(610, 995, 550, 370))
+    parts.append(section_title("证据栈与风险" if lang == "zh" else "Evidence And Risk", 636, 1037))
     top = champion_rows[0] if champion_rows else {}
     clear_count = len([row for row in matches if favorite_for_match(row)[1] >= 0.80])
     tight_count = len([row for row in matches if favorite_for_match(row)[1] < 0.58])
@@ -428,20 +456,17 @@ def render_dashboard(
         ("接近盘" if lang == "zh" else "Near Flips", str(tight_count), f"/ {len(matches)}"),
     ]
     for index, (name, value, suffix) in enumerate(metrics):
-        x = 646 + index * 158
-        parts.append(f'<rect x="{x}" y="1022" width="142" height="105" rx="8" fill="#fbfcfa" stroke="#e2e6df"/>')
-        parts.append(f'<text x="{x + 14}" y="1052" class="small">{esc(name)}</text>')
-        parts.append(f'<text x="{x + 14}" y="1090" class="metric">{esc(value)}</text>')
-        parts.append(f'<text x="{x + 14}" y="1115" class="small">{esc(suffix)}</text>')
+        x = 636 + index * 164
+        parts.append(f'<rect x="{x}" y="1067" width="150" height="105" rx="8" fill="#fbfcfa" stroke="#e2e6df"/>')
+        parts.append(f'<text x="{x + 14}" y="1097" class="small">{esc(name)}</text>')
+        parts.append(f'<text x="{x + 14}" y="1135" class="metric">{esc(value)}</text>')
+        parts.append(f'<text x="{x + 14}" y="1160" class="small">{esc(suffix)}</text>')
     source_text = ", ".join(rating_sources) if rating_sources else ("无公开评分" if lang == "zh" else "No public rating source")
     market_text = ", ".join(market_sources) if market_sources else ("未配置" if lang == "zh" else "not configured")
-    parts.append(f'<text x="646" y="1172" class="label">{"评分来源" if lang == "zh" else "Rating source"}</text>')
-    parts.append(f'<text x="646" y="1198" class="small">{esc(truncate(source_text, 62))}</text>')
-    parts.append(f'<text x="646" y="1240" class="label">{"市场信号" if lang == "zh" else "Market signals"}</text>')
-    parts.append(f'<text x="646" y="1266" class="small">{esc(truncate(market_text, 62))}</text>')
-    parts.append(f'<text x="646" y="1308" class="label">{"数据警告" if lang == "zh" else "Data warnings"}</text>')
-    warning_text = f"{len([w for w in warnings if w])} 条" if lang == "zh" else str(len([w for w in warnings if w]))
-    parts.append(f'<text x="646" y="1334" class="small">{esc(warning_text)}</text>')
+    parts.append(f'<text x="636" y="1226" class="label">{"评分来源" if lang == "zh" else "Rating source"}</text>')
+    parts.append(f'<text x="636" y="1252" class="small">{esc(truncate(source_text, 62))}</text>')
+    parts.append(f'<text x="636" y="1294" class="label">{"市场信号" if lang == "zh" else "Market signals"}</text>')
+    parts.append(f'<text x="636" y="1320" class="small">{esc(truncate(market_text, 62))}</text>')
 
     parts.append(f'<text x="42" y="1510" class="small">flag-icons {FLAG_ICONS_VERSION} · public data + transparent heuristic model · not betting advice</text>')
     parts.append("</svg>")

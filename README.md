@@ -123,7 +123,7 @@ python scripts/generate_daily_report.py --season 2026 --runs 5000
 
 这个方案使用 GitHub Actions 云端运行，不要求本地 Codex app 开机，也不要求 OpenAI API key。后续如果要让 Codex 在报告里写更复杂的中文解读，可以再接入 Codex GitHub Action 或 Codex automation。
 
-日报 Markdown 使用 `assets/daily-report-template.md` 作为固定模板。展示顺序是：SVG 看板、三条结论、可审计明细表。这样 GitHub 仓库页不需要渲染 HTML，也能先看到图形化结果；表格仍保留在后面，方便检查具体概率和数据源警告。
+日报 Markdown 使用 `assets/daily-report-template.md` 作为固定模板。展示顺序是：SVG 看板、三条结论、可审计明细表。这样 GitHub 仓库页不需要渲染 HTML，也能先看到图形化结果；表格仍保留在后面，方便检查具体概率和数据源状态。
 
 ## 输出解读
 
