@@ -18,41 +18,41 @@
 <rect x="44" y="270" width="1112" height="360" rx="8" class="card"/>
 <text x="70" y="312" class="h">冠军概率变化</text>
 <text x="72" y="352" class="label">法国</text>
-<text x="230" y="352" class="small">44.9% → 45.7%</text>
+<text x="230" y="352" class="small">44.9% → 47.7%</text>
 <rect x="430" y="338" width="300" height="16" rx="8" class="barbg"/>
-<rect x="580.0" y="338" width="82.9" height="16" rx="8" class="green"/>
+<rect x="580.0" y="338" width="116.0" height="16" rx="8" class="green"/>
 <line x1="580" y1="333" x2="580" y2="359" stroke="#98a2b3" stroke-width="1"/>
-<text x="760" y="352" class="num pos">+0.8pp</text>
+<text x="760" y="352" class="num pos">+2.8pp</text>
 <text x="72" y="392" class="label">阿根廷</text>
-<text x="230" y="392" class="small">26.6% → 26.9%</text>
+<text x="230" y="392" class="small">26.6% → 29.9%</text>
 <rect x="430" y="378" width="300" height="16" rx="8" class="barbg"/>
-<rect x="580.0" y="378" width="31.1" height="16" rx="8" class="green"/>
+<rect x="580.0" y="378" width="136.7" height="16" rx="8" class="green"/>
 <line x1="580" y1="373" x2="580" y2="399" stroke="#98a2b3" stroke-width="1"/>
-<text x="760" y="392" class="num pos">+0.3pp</text>
+<text x="760" y="392" class="num pos">+3.3pp</text>
 <text x="72" y="432" class="label">巴西</text>
-<text x="230" y="432" class="small">18.7% → 17.3%</text>
+<text x="230" y="432" class="small">18.7% → 15.2%</text>
 <rect x="430" y="418" width="300" height="16" rx="8" class="barbg"/>
 <rect x="435.0" y="418" width="145.0" height="16" rx="8" class="red"/>
 <line x1="580" y1="413" x2="580" y2="439" stroke="#98a2b3" stroke-width="1"/>
-<text x="760" y="432" class="num neg">-1.4pp</text>
+<text x="760" y="432" class="num neg">-3.5pp</text>
 <text x="72" y="472" class="label">西班牙</text>
-<text x="230" y="472" class="small">2.2% → 2.4%</text>
+<text x="230" y="472" class="small">2.2% → 2.8%</text>
 <rect x="430" y="458" width="300" height="16" rx="8" class="barbg"/>
-<rect x="580.0" y="458" width="20.7" height="16" rx="8" class="green"/>
+<rect x="580.0" y="458" width="24.9" height="16" rx="8" class="green"/>
 <line x1="580" y1="453" x2="580" y2="479" stroke="#98a2b3" stroke-width="1"/>
-<text x="760" y="472" class="num pos">+0.2pp</text>
+<text x="760" y="472" class="num pos">+0.6pp</text>
 <text x="72" y="512" class="label">墨西哥</text>
-<text x="230" y="512" class="small">1.6% → 2.0%</text>
+<text x="230" y="512" class="small">1.6% → 1.1%</text>
 <rect x="430" y="498" width="300" height="16" rx="8" class="barbg"/>
-<rect x="580.0" y="498" width="41.4" height="16" rx="8" class="green"/>
+<rect x="559.3" y="498" width="20.7" height="16" rx="8" class="red"/>
 <line x1="580" y1="493" x2="580" y2="519" stroke="#98a2b3" stroke-width="1"/>
-<text x="760" y="512" class="num pos">+0.4pp</text>
-<text x="72" y="552" class="label">摩洛哥</text>
-<text x="230" y="552" class="small">1.1% → 1.6%</text>
+<text x="760" y="512" class="num neg">-0.5pp</text>
+<text x="72" y="552" class="label">英格兰</text>
+<text x="230" y="552" class="small">0.9% → 0.8%</text>
 <rect x="430" y="538" width="300" height="16" rx="8" class="barbg"/>
-<rect x="580.0" y="538" width="51.8" height="16" rx="8" class="green"/>
+<rect x="575.9" y="538" width="4.1" height="16" rx="8" class="red"/>
 <line x1="580" y1="533" x2="580" y2="559" stroke="#98a2b3" stroke-width="1"/>
-<text x="760" y="552" class="num pos">+0.5pp</text>
+<text x="760" y="552" class="num neg">-0.1pp</text>
 <rect x="44" y="660" width="1112" height="156" rx="8" class="card"/>
 <text x="70" y="702" class="h">16强预测队列变化</text>
 <text x="70" y="738" class="label">从预测表移除：巴拉圭 vs 法国、加拿大 vs 摩洛哥</text>
