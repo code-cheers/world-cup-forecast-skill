@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="880" viewBox="0 0 1200 880" role="img" aria-label="世界杯预测变化图">
+<style>text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Noto Sans CJK SC",Arial,sans-serif}.bg{fill:#f6f7f2}.card{fill:#fff;stroke:#d9ded5}.title{font-size:34px;font-weight:700;fill:#172026}.subtitle{font-size:15px;fill:#667085}.h{font-size:21px;font-weight:700;fill:#172026}.label{font-size:16px;font-weight:600;fill:#172026}.small{font-size:13px;fill:#667085}.num{font-size:18px;font-weight:700;fill:#172026}.pos{fill:#13795b}.neg{fill:#c2410c}.zero{fill:#667085}.barbg{fill:#edf1ec}.green{fill:#13795b}.red{fill:#c2410c}</style>
+<rect width="1200" height="880" class="bg"/>
+<text x="44" y="58" class="title">2026-07-04 → 2026-07-05 预测变化图</text>
+<text x="44" y="88" class="subtitle">来源：forecasts/daily/2026-07-04.md 与 forecasts/latest.md；市场信号：未配置</text>
+<rect x="44" y="120" width="220" height="116" rx="8" class="card"/>
+<text x="64" y="154" class="small">已完赛</text>
+<text x="64" y="194" class="num">88 场 → 90 场</text>
+<text x="64" y="222" class="small pos">+2 场</text>
+<rect x="294" y="120" width="220" height="116" rx="8" class="card"/>
+<text x="314" y="154" class="small">剩余场次</text>
+<text x="314" y="194" class="num">16 场 → 14 场</text>
+<text x="314" y="222" class="small neg">-2 场</text>
+<rect x="544" y="120" width="220" height="116" rx="8" class="card"/>
+<text x="564" y="154" class="small">待预测16强</text>
+<text x="564" y="194" class="num">8 场 → 6 场</text>
+<text x="564" y="222" class="small neg">-2 场</text>
+<rect x="44" y="270" width="1112" height="360" rx="8" class="card"/>
+<text x="70" y="312" class="h">冠军概率变化</text>
+<text x="72" y="352" class="label">法国</text>
+<text x="230" y="352" class="small">44.9% → 45.7%</text>
+<rect x="430" y="338" width="300" height="16" rx="8" class="barbg"/>
+<rect x="580.0" y="338" width="82.9" height="16" rx="8" class="green"/>
+<line x1="580" y1="333" x2="580" y2="359" stroke="#98a2b3" stroke-width="1"/>
+<text x="760" y="352" class="num pos">+0.8pp</text>
+<text x="72" y="392" class="label">阿根廷</text>
+<text x="230" y="392" class="small">26.6% → 26.9%</text>
+<rect x="430" y="378" width="300" height="16" rx="8" class="barbg"/>
+<rect x="580.0" y="378" width="31.1" height="16" rx="8" class="green"/>
+<line x1="580" y1="373" x2="580" y2="399" stroke="#98a2b3" stroke-width="1"/>
+<text x="760" y="392" class="num pos">+0.3pp</text>
+<text x="72" y="432" class="label">巴西</text>
+<text x="230" y="432" class="small">18.7% → 17.3%</text>
+<rect x="430" y="418" width="300" height="16" rx="8" class="barbg"/>
+<rect x="435.0" y="418" width="145.0" height="16" rx="8" class="red"/>
+<line x1="580" y1="413" x2="580" y2="439" stroke="#98a2b3" stroke-width="1"/>
+<text x="760" y="432" class="num neg">-1.4pp</text>
+<text x="72" y="472" class="label">西班牙</text>
+<text x="230" y="472" class="small">2.2% → 2.4%</text>
+<rect x="430" y="458" width="300" height="16" rx="8" class="barbg"/>
+<rect x="580.0" y="458" width="20.7" height="16" rx="8" class="green"/>
+<line x1="580" y1="453" x2="580" y2="479" stroke="#98a2b3" stroke-width="1"/>
+<text x="760" y="472" class="num pos">+0.2pp</text>
+<text x="72" y="512" class="label">墨西哥</text>
+<text x="230" y="512" class="small">1.6% → 2.0%</text>
+<rect x="430" y="498" width="300" height="16" rx="8" class="barbg"/>
+<rect x="580.0" y="498" width="41.4" height="16" rx="8" class="green"/>
+<line x1="580" y1="493" x2="580" y2="519" stroke="#98a2b3" stroke-width="1"/>
+<text x="760" y="512" class="num pos">+0.4pp</text>
+<text x="72" y="552" class="label">摩洛哥</text>
+<text x="230" y="552" class="small">1.1% → 1.6%</text>
+<rect x="430" y="538" width="300" height="16" rx="8" class="barbg"/>
+<rect x="580.0" y="538" width="51.8" height="16" rx="8" class="green"/>
+<line x1="580" y1="533" x2="580" y2="559" stroke="#98a2b3" stroke-width="1"/>
+<text x="760" y="552" class="num pos">+0.5pp</text>
+<rect x="44" y="660" width="1112" height="156" rx="8" class="card"/>
+<text x="70" y="702" class="h">16强预测队列变化</text>
+<text x="70" y="738" class="label">从预测表移除：巴拉圭 vs 法国、加拿大 vs 摩洛哥</text>
+<text x="70" y="772" class="small">新增待预测：无</text>
+<text x="70" y="802" class="small">高置信场次：3 → 2；低置信接近盘：3 → 3。不在图中补写比分或赛事实况。</text>
+</svg>

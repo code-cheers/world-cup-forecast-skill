@@ -18,6 +18,7 @@ python scripts/worldcup_forecast.py predict --season 2026 --target next-round --
 python scripts/worldcup_forecast.py predict --season 2026 --target final --runs 2000 --format markdown
 python scripts/worldcup_forecast.py predict --season 2026 --target next-round --market-signals-file examples/market-signals.example.json --format markdown
 python scripts/generate_daily_report.py --season 2026 --runs 5000
+python scripts/generate_analysis_change_chart.py --current forecasts/latest.md
 ```
 
 Daily GitHub reports should be visual-first: the first screen should embed the generated SVG dashboard, then summarize 3 concise conclusions, then keep Markdown tables as auditable detail. Chinese Markdown output should display common country/team names in Chinese, such as `阿根廷` instead of `Argentina`; use `--lang en` for English Markdown output and `--lang zh` to be explicit. Use `--format json` when the result needs further processing; JSON keys stay stable regardless of `--lang`. Use `--seed` with `predict --target final` when reproducibility matters.
@@ -107,4 +108,15 @@ The repository includes `.github/workflows/daily-world-cup-forecast.yml`, schedu
 
 The Markdown report is filled from `assets/daily-report-template.md` so the daily format remains consistent. The dashboard inlines SVG flags from `lipis/flag-icons` pinned to a fixed version via jsDelivr; if a flag cannot be fetched, the dashboard uses a small text fallback instead of failing the report.
 
-This daily report does not require Codex cloud or an OpenAI API key because the forecast is produced by the deterministic local CLI. If the report should include Codex-written narrative analysis, use the Codex GitHub Action or a Codex automation as a later layer.
+This daily report does not require Codex cloud or an OpenAI API key because the forecast is produced by the deterministic local CLI. If the report should include Codex-written narrative analysis, use a Codex automation as a later layer. The automation should write `forecasts/analysis/YYYY-MM-DD.md` and `forecasts/analysis/latest.md`, then run:
+
+```bash
+python scripts/generate_analysis_change_chart.py --current forecasts/latest.md
+```
+
+When an older dated daily report exists, that script writes:
+
+- `forecasts/analysis/YYYY-MM-DD-change.svg`
+- `forecasts/analysis/latest-change.svg`
+
+Embed the dated SVG near the top of the dated analysis report and `latest-change.svg` near the top of `forecasts/analysis/latest.md`. The model-written analysis should explain the chart in Chinese, but the chart itself is generated deterministically from the preserved daily Markdown snapshots.
